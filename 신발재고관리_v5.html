@@ -1336,9 +1336,21 @@ function processFile(file) {
 }
 
 function applyUpload() {
-  let cnt=0;
+  let cnt=0, failCnt=0;
   pendingUpload.forEach(row=>{
-    if(!row.ok) return;
+    if(!row.ok) {
+      // 실패 이력 기록 (상품없음 / 옵션없음 / 재고부족 / 방식오류)
+      const p=gp(row.pname);
+      const s=p?gs(p,row.color,row.size):null;
+      let reason='';
+      if(!p) reason=`상품없음(${row.pname})`;
+      else if(!s) reason=`옵션없음(${row.color}/${row.size}mm)`;
+      else if(row.mode==='차감'&&row.qty>row.curStock) reason=`재고부족(현재${row.curStock},요청${row.qty})`;
+      else reason='방식오류';
+      addHistory({type:'실패',name:row.pname,color:row.color,size:row.size,extra:`엑셀업로드 실패 · ${reason}`,qty:row.qty,after:row.curStock??0});
+      failCnt++;
+      return;
+    }
     const p=gp(row.pname); const s=gs(p,row.color,row.size); if(!p||!s) return;
     if(row.mode==='추가') s.stock+=row.qty;
     else if(row.mode==='차감') s.stock-=row.qty;
@@ -1347,7 +1359,8 @@ function applyUpload() {
     cnt++;
   });
   clearUpload(); autoSave(); renderAll();
-  toast(`✅ ${cnt}건 재고 업데이트 완료`,'ok');
+  if(failCnt) toast(`✅ ${cnt}건 완료 / ⚠ ${failCnt}건 실패 (이력에 기록됨)`,'info');
+  else toast(`✅ ${cnt}건 재고 업데이트 완료`,'ok');
 }
 
 function clearUpload() {
