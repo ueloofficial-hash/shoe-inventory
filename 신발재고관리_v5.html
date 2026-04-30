@@ -198,6 +198,23 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 ::-webkit-scrollbar-track{background:var(--bg)}
 ::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
 
+/* ── 단가/금액 ── */
+.price-input{width:90px;padding:3px 7px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-size:11px;font-family:'JetBrains Mono',monospace;text-align:right;outline:none}
+.price-input:focus{border-color:var(--accent)}
+.price-badge{display:inline-flex;padding:2px 8px;border-radius:20px;font-size:11px;background:var(--pbg);color:var(--purple);font-family:'JetBrains Mono',monospace;font-weight:600}
+.sum-card{background:var(--bg2);border:1px solid var(--border2);border-radius:var(--rl);padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.sum-card-label{font-size:11px;color:var(--text2);font-weight:500}
+.sum-card-value{font-size:20px;font-weight:700;font-family:'JetBrains Mono',monospace;color:var(--purple)}
+.sum-card-sub{font-size:11px;color:var(--text3)}
+/* ── 사이즈 재고 현황 탭 ── */
+.size-report-table{width:100%;border-collapse:collapse}
+.size-report-table th{padding:8px 12px;text-align:left;font-size:10px;color:var(--text3);font-weight:500;letter-spacing:.8px;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg3)}
+.size-report-table td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:13px}
+.size-report-table tr:last-child td{border-bottom:none}
+.size-report-table tr:hover td{background:rgba(255,255,255,.015)}
+.progress-bar-wrap{background:var(--bg3);border-radius:4px;height:6px;width:80px;overflow:hidden;display:inline-block;vertical-align:middle}
+.progress-bar-inner{height:100%;border-radius:4px;background:var(--accent);transition:width .3s}
+
 /* ── 로그인 화면 ── */
 .login-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:999;flex-direction:column;gap:0}
 .login-screen.hidden{display:none}
@@ -257,6 +274,7 @@ tr:hover td{background:rgba(255,255,255,0.015)}
   <div class="nav-item" onclick="nav('excel',this)"><span>📂</span>엑셀 업로드</div>
   <div class="nav-sec">기록</div>
   <div class="nav-item" onclick="nav('history',this)"><span>📋</span>입출고 이력</div>
+  <div class="nav-item" onclick="nav('sizereport',this)"><span>📐</span>사이즈별 재고</div>
 </div>
 
 <!-- ── 메인 ── -->
@@ -290,13 +308,15 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 <!-- 재고 현황 -->
 <div id="page-inventory" class="page">
   <div class="topbar">
-    <div><div class="page-title">재고 현황</div><div class="page-sub">카테고리별 / 상품 추가·수정·숨기기·삭제</div></div>
+    <div><div class="page-title">재고 현황</div><div class="page-sub">카테고리별 / 단가 입력 / 금액 합계</div></div>
     <div class="topbar-right">
       <button class="btn btn-sm btn-pu" onclick="toggleShowHidden()">👁 숨김 보기</button>
       <button class="btn btn-p btn-sm" onclick="openAddModal()">+ 신상품 추가</button>
     </div>
   </div>
   <div class="content">
+    <!-- 금액 요약 -->
+    <div id="inv-price-summary" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:16px"></div>
     <div class="sbar"><input class="sinput" id="inv-q" placeholder="상품명 검색..." oninput="renderInv()"></div>
     <div class="cat-tabs" id="cat-tabs"></div>
     <div class="pgrid" id="inv-grid"></div>
@@ -407,6 +427,28 @@ tr:hover td{background:rgba(255,255,255,0.015)}
       <div class="panel"><div class="panel-title">조정 내역</div>
         <div id="adj-log"><div style="color:var(--text3);text-align:center;padding:28px 0">아직 없습니다</div></div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- 사이즈별 재고 현황 -->
+<div id="page-sizereport" class="page">
+  <div class="topbar">
+    <div><div class="page-title">사이즈별 재고</div><div class="page-sub">상품·사이즈별 입고 총계 vs 현재 재고</div></div>
+    <div class="topbar-right">
+      <input class="sinput" id="sr-q" placeholder="상품명 검색..." oninput="renderSizeReport()" style="width:200px;margin:0">
+      <button class="btn btn-sm btn-g" onclick="exportSizeReport()">⬇ 엑셀</button>
+    </div>
+  </div>
+  <div class="content">
+    <div class="tcard">
+      <table class="size-report-table">
+        <thead><tr>
+          <th>상품명</th><th>카테고리</th><th>색상</th><th>사이즈</th>
+          <th>입고 총계</th><th>현재 재고</th><th>출고량</th><th>소진율</th>
+        </tr></thead>
+        <tbody id="sr-tbody"></tbody>
+      </table>
     </div>
   </div>
 </div>
@@ -830,17 +872,30 @@ function cardHtml(p) {
   const sc2 = selColors[key];
   const co = gc(p, sc2);
   const total = tot(p);
+  const price = p.price || 0;
+  const totalAmt = price * total;
+  const pricePart = `<div style="display:flex;align-items:center;gap:5px;margin-top:5px;padding-top:5px;border-top:1px solid var(--border)">
+    <span style="font-size:10px;color:var(--text3)">단가</span>
+    <input class="price-input" type="number" min="0" step="100" placeholder="0" value="${price||''}"
+      oninput="setPrice('${p.name.replace(/'/g,"\\'")}', this.value)"
+      onclick="event.stopPropagation()" style="width:90px">
+    <span style="font-size:10px;color:var(--text3)">원</span>
+    ${price?`<span class="price-badge" style="margin-left:auto">${totalAmt.toLocaleString()}원</span>`:''}
+  </div>`;
   return `<div class="pcard${p.hidden?' hidden-card':''}">
     <div class="pcard-head">
-      <div class="pcard-left">
-        <div class="pcard-name">${p.name}</div>
-        <div class="pcard-cat">${p.cat||'기타'}</div>
-        ${p.hidden?'<span class="badge ba" style="font-size:10px">숨김</span>':''}
-      </div>
-      <div class="pcard-actions">
-        <button class="btn btn-xs btn-a" onclick="openEdit('${p.name.replace(/'/g,"\\'")}')">✏️</button>
-        <button class="btn btn-xs btn-pu" onclick="toggleHide('${p.name.replace(/'/g,"\\'")}')">👁</button>
-        <button class="btn btn-xs btn-r" onclick="openDel('${p.name.replace(/'/g,"\\'")}')">🗑</button>
+      <div class="pcard-left" style="flex-direction:column;align-items:flex-start;gap:3px">
+        <div style="display:flex;align-items:center;gap:6px;width:100%">
+          <div class="pcard-name">${p.name}</div>
+          <div class="pcard-cat">${p.cat||'기타'}</div>
+          ${p.hidden?'<span class="badge ba" style="font-size:10px">숨김</span>':''}
+          <div class="pcard-actions" style="margin-left:auto">
+            <button class="btn btn-xs btn-a" onclick="openEdit('${p.name.replace(/'/g,"\\'")}')">✏️</button>
+            <button class="btn btn-xs btn-pu" onclick="toggleHide('${p.name.replace(/'/g,"\\'")}')">👁</button>
+            <button class="btn btn-xs btn-r" onclick="openDel('${p.name.replace(/'/g,"\\'")}')">🗑</button>
+          </div>
+        </div>
+        ${pricePart}
       </div>
     </div>
     <div class="ctabs">${p.colors.map(c=>`<div class="ctab ${c.color===sc2?'on':''}" onclick="pickColor('${key}','${c.color}')">${c.color}</div>`).join('')}</div>
@@ -850,6 +905,116 @@ function cardHtml(p) {
 
 function pickColor(key, color) {
   selColors[key] = color; renderInv();
+}
+
+// ═══════════════════════════════════════════════════════
+// 단가 설정
+// ═══════════════════════════════════════════════════════
+function setPrice(name, val) {
+  const p = gp(name); if(!p) return;
+  p.price = parseInt(val) || 0;
+  renderInvPriceSummary();
+  autoSave();
+}
+
+function renderInvPriceSummary() {
+  const vis = products.filter(p => !p.hidden);
+  // 전체 합계
+  const totalAmt = vis.reduce((a,p) => a + (p.price||0) * tot(p), 0);
+  const priced = vis.filter(p => p.price > 0).length;
+  // 카테고리별
+  const catMap = {};
+  vis.forEach(p => {
+    const c = p.cat||'기타';
+    if(!catMap[c]) catMap[c] = {amt:0, stock:0};
+    catMap[c].amt += (p.price||0)*tot(p);
+    catMap[c].stock += tot(p);
+  });
+  const cards = [`<div class="sum-card">
+    <div class="sum-card-label">💰 전체 재고 금액</div>
+    <div class="sum-card-value">${totalAmt.toLocaleString()}원</div>
+    <div class="sum-card-sub">단가 입력된 상품 ${priced}개</div>
+  </div>`];
+  Object.entries(catMap).forEach(([cat, v]) => {
+    cards.push(`<div class="sum-card">
+      <div class="sum-card-label">📂 ${cat}</div>
+      <div class="sum-card-value">${v.amt.toLocaleString()}원</div>
+      <div class="sum-card-sub">${v.stock.toLocaleString()}켤레</div>
+    </div>`);
+  });
+  document.getElementById('inv-price-summary').innerHTML = cards.join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// 사이즈별 재고 현황
+// ═══════════════════════════════════════════════════════
+function renderSizeReport() {
+  const q = (document.getElementById('sr-q')?.value||'').toLowerCase();
+  const rows = [];
+  products.filter(p => !p.hidden && (!q || p.name.toLowerCase().includes(q))).forEach(p => {
+    p.colors.forEach(c => {
+      c.sizes.forEach(s => {
+        // 입고 총계 = 현재 재고 + 출고된 수량 (history에서 계산)
+        const outQty = history.filter(h =>
+          h.name===p.name && h.color===c.color && String(h.size)===String(s.size) &&
+          (h.type==='출고'||h.type==='출고(엑셀)'||h.type==='조정(-)')
+        ).reduce((a,h)=>a+h.qty,0);
+        const inQty = history.filter(h =>
+          h.name===p.name && h.color===c.color && String(h.size)===String(s.size) &&
+          (h.type==='입고'||h.type==='입고(엑셀)'||h.type==='조정(+'||h.type==='조정(엑셀)')
+        ).reduce((a,h)=>a+h.qty,0);
+        // 입고 총계 = 현재고 + 순출고 (이력이 없으면 현재고가 초기값)
+        const totalIn = s.stock + outQty; // 현재 + 나간 것
+        const rate = totalIn > 0 ? Math.round((outQty/totalIn)*100) : 0;
+        rows.push({pname:p.name, cat:p.cat||'기타', color:c.color, size:s.size, totalIn, cur:s.stock, out:outQty, rate});
+      });
+    });
+  });
+  const tbody = document.getElementById('sr-tbody');
+  if(!rows.length){ tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:22px">데이터 없음</td></tr>'; return; }
+  tbody.innerHTML = rows.map(r => {
+    const barW = r.rate;
+    const barColor = r.rate>=80?'var(--red)':r.rate>=50?'var(--amber)':'var(--green)';
+    const curColor = r.cur===0?'var(--red)':r.cur<=5?'var(--amber)':'var(--green)';
+    return `<tr>
+      <td style="font-weight:600">${r.pname}</td>
+      <td><span class="badge bb">${r.cat}</span></td>
+      <td>${r.color}</td>
+      <td class="mono">${r.size}mm</td>
+      <td class="mono" style="color:var(--accent2);font-weight:600">${r.totalIn.toLocaleString()}</td>
+      <td class="mono" style="color:${curColor};font-weight:600">${r.cur.toLocaleString()}</td>
+      <td class="mono" style="color:var(--text2)">${r.out.toLocaleString()}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:6px">
+          <div class="progress-bar-wrap"><div class="progress-bar-inner" style="width:${barW}%;background:${barColor}"></div></div>
+          <span style="font-size:11px;color:${barColor};font-family:'JetBrains Mono',monospace">${barW}%</span>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function exportSizeReport() {
+  const q = (document.getElementById('sr-q')?.value||'').toLowerCase();
+  const rows = [['상품명','카테고리','색상','사이즈(mm)','입고총계','현재재고','출고량','소진율(%)']];
+  products.filter(p => !p.hidden && (!q || p.name.toLowerCase().includes(q))).forEach(p => {
+    p.colors.forEach(c => {
+      c.sizes.forEach(s => {
+        const outQty = history.filter(h =>
+          h.name===p.name && h.color===c.color && String(h.size)===String(s.size) &&
+          (h.type==='출고'||h.type==='출고(엑셀)'||h.type==='조정(-)')
+        ).reduce((a,h)=>a+h.qty,0);
+        const totalIn = s.stock + outQty;
+        const rate = totalIn > 0 ? Math.round((outQty/totalIn)*100) : 0;
+        rows.push([p.name, p.cat||'기타', c.color, s.size, totalIn, s.stock, outQty, rate]);
+      });
+    });
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{wch:18},{wch:12},{wch:12},{wch:10},{wch:10},{wch:10},{wch:8},{wch:10}];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '사이즈별재고');
+  XLSX.writeFile(wb, `사이즈별재고_${dateStr()}.xlsx`);
+  toast('엑셀 저장됨','ok');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1484,7 +1649,8 @@ function nav(page, el) {
   document.getElementById('page-'+page).classList.add('on');
   el.classList.add('on');
   if(page==='history') renderHist();
-  if(page==='inventory') renderInv();
+  if(page==='inventory') { renderInv(); renderInvPriceSummary(); }
+  if(page==='sizereport') renderSizeReport();
 }
 
 function openModal(id){ document.getElementById(id).classList.add('show'); }
@@ -1496,8 +1662,9 @@ document.querySelectorAll('.overlay').forEach(el=>el.addEventListener('click',e=
 // ═══════════════════════════════════════════════════════
 function renderAll() {
   renderDash();
-  if(document.getElementById('page-inventory').classList.contains('on')) renderInv();
+  if(document.getElementById('page-inventory').classList.contains('on')) { renderInv(); renderInvPriceSummary(); }
   if(document.getElementById('page-history').classList.contains('on')) renderHist();
+  if(document.getElementById('page-sizereport').classList.contains('on')) renderSizeReport();
 }
 
 // ═══════════════════════════════════════════════════════
