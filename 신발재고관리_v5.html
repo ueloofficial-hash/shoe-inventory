@@ -414,16 +414,23 @@ tr:hover td{background:rgba(255,255,255,0.015)}
 <!-- 엑셀 업로드 -->
 <div id="page-excel" class="page">
   <div class="topbar">
-    <div><div class="page-title">엑셀 업로드</div><div class="page-sub">엑셀로 재고 일괄 추가·차감·설정</div></div>
-    <button class="btn btn-g btn-sm" onclick="downloadTemplate()">⬇ 양식 다운로드</button>
+    <div><div class="page-title">엑셀 업로드</div><div class="page-sub">재고 일괄 처리 / 신상품 일괄 등록</div></div>
   </div>
   <div class="content">
+    <!-- 탭 -->
+    <div class="cat-tabs" style="margin-bottom:18px">
+      <div class="cat-tab on" id="etab-stock" onclick="switchExcelTab('stock')">📦 재고 수량 업로드</div>
+      <div class="cat-tab" id="etab-product" onclick="switchExcelTab('product')">➕ 신상품 일괄 등록</div>
+    </div>
+
+    <!-- 재고 수량 업로드 탭 -->
+    <div id="excel-stock-panel">
     <div class="tpl-box">
       <div style="font-size:12px;color:var(--text2);line-height:1.7">
         <b style="color:var(--text)">엑셀 양식 형식</b><br>
         <span class="mono" style="font-size:11px">상품명 | 색상 | 사이즈(mm) | 수량 | 처리방식(추가/차감/설정)</span>
       </div>
-      <button class="btn btn-sm" onclick="downloadTemplate()">양식 받기</button>
+      <button class="btn btn-sm" onclick="downloadTemplate()">⬇ 양식 받기</button>
     </div>
     <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-inp').click()" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event)">
       <div style="font-size:28px;margin-bottom:8px">📂</div>
@@ -446,6 +453,40 @@ tr:hover td{background:rgba(255,255,255,0.015)}
         </table>
       </div>
     </div>
+    </div><!-- /excel-stock-panel -->
+
+    <!-- 신상품 일괄 등록 탭 -->
+    <div id="excel-product-panel" style="display:none">
+    <div class="tpl-box">
+      <div style="font-size:12px;color:var(--text2);line-height:1.7">
+        <b style="color:var(--text)">신상품 등록 양식 형식</b><br>
+        <span class="mono" style="font-size:11px">상품명 | 카테고리 | 색상 | 사이즈(mm) | 초기재고</span><br>
+        <span style="font-size:11px;color:var(--text3)">같은 상품명·색상으로 여러 행 → 사이즈별로 자동 합산</span>
+      </div>
+      <button class="btn btn-sm" onclick="downloadProductTemplate()">⬇ 양식 받기</button>
+    </div>
+    <div class="drop-zone" id="drop-zone-product" onclick="document.getElementById('file-inp-product').click()" ondragover="onDragOver2(event)" ondragleave="onDragLeave2(event)" ondrop="onDrop2(event)">
+      <div style="font-size:28px;margin-bottom:8px">📦</div>
+      <div style="font-size:14px;font-weight:500;margin-bottom:3px">신상품 엑셀 파일 드래그 또는 클릭</div>
+      <div style="font-size:12px;color:var(--text2)">.xlsx / .xls</div>
+    </div>
+    <input type="file" id="file-inp-product" accept=".xlsx,.xls" style="display:none" onchange="onFileSelectProduct(event)">
+    <div class="upload-result" id="upload-result-product">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:500" id="result-title-product"></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-sm" onclick="clearUploadProduct()">취소</button>
+          <button class="btn btn-p btn-sm" onclick="applyUploadProduct()">✅ 신상품 등록</button>
+        </div>
+      </div>
+      <div id="result-summary-product" style="font-size:12px;color:var(--text2);margin-bottom:10px"></div>
+      <div style="overflow-x:auto">
+        <table class="preview-table"><thead><tr><th>상품명</th><th>카테고리</th><th>색상 수</th><th>사이즈 수</th><th>상태</th></tr></thead>
+          <tbody id="preview-tbody-product"></tbody>
+        </table>
+      </div>
+    </div>
+    </div><!-- /excel-product-panel -->
   </div>
 </div>
 
@@ -459,11 +500,11 @@ tr:hover td{background:rgba(255,255,255,0.015)}
     <div class="sbar">
       <input class="sinput" id="h-q" placeholder="상품명, 색상, 사이즈, 스토어 검색..." oninput="renderHist()">
       <select class="fsel" style="width:130px" id="h-f" onchange="renderHist()">
-        <option value="">전체</option><option value="출고">출고</option><option value="입고">입고</option><option value="조정">조정</option>
+        <option value="">전체</option><option value="출고">출고</option><option value="입고">입고</option><option value="조정">조정</option><option value="등록">등록</option><option value="수정">수정</option><option value="삭제">삭제</option><option value="실패">실패</option>
       </select>
     </div>
     <div class="tcard">
-      <table><thead><tr><th>날짜</th><th>시간</th><th>구분</th><th>상품명</th><th>색상</th><th>사이즈</th><th>스토어/사유</th><th>수량</th><th>처리 후</th></tr></thead>
+      <table><thead><tr><th>날짜</th><th>시간</th><th>구분</th><th>작업자</th><th>상품명</th><th>색상</th><th>사이즈</th><th>스토어/사유</th><th>수량</th><th>처리 후</th></tr></thead>
         <tbody id="h-tbody"></tbody>
       </table>
     </div>
@@ -715,6 +756,16 @@ function toast(msg, type='') {
   setTimeout(() => t.className = 'toast', 3000);
 }
 
+// 이력 추가 헬퍼 (작업자 자동 포함)
+function addHistory(h) {
+  history.unshift({
+    date: dateStr(),
+    time: nowStr(),
+    user: currentUser ? currentUser.email : '—',
+    ...h
+  });
+}
+
 // ═══════════════════════════════════════════════════════
 // 대시보드
 // ═══════════════════════════════════════════════════════
@@ -889,16 +940,15 @@ function updAdjLbl() {
 // ═══════════════════════════════════════════════════════
 function doOrder() {
   const name = selectedProducts['o'];
-  if(!name){ toast('상품을 검색해서 선택해주세요','err'); return; }
+  if(!name){ addHistory({type:'실패',name:'출고',color:'—',size:'—',extra:'상품 미선택',qty:0,after:0}); toast('상품을 검색해서 선택해주세요','err'); return; }
   const cl=document.getElementById('o-c').value, sz=document.getElementById('o-s').value;
   const st=document.getElementById('o-store').value, q=parseInt(document.getElementById('o-qty').value)||0;
   const no=document.getElementById('o-no').value;
   const p=gp(name); const s=gs(p,cl,sz);
-  if(!p||!s||q<=0){ toast('입력값 확인','err'); return; }
-  if(q>s.stock){ toast('재고 부족','err'); return; }
+  if(!p||!s||q<=0){ addHistory({type:'실패',name,color:cl,size:sz,extra:'입력값 오류',qty:q,after:s?s.stock:0}); toast('입력값 확인','err'); return; }
+  if(q>s.stock){ addHistory({type:'실패',name,color:cl,size:sz,extra:`재고부족(현재${s.stock}켤레,요청${q}켤레)`,qty:q,after:s.stock}); toast('재고 부족','err'); return; }
   s.stock-=q; todayOut+=q;
-  const h = {date:dateStr(),time:nowStr(),type:'출고',name,color:cl,size:sz,extra:st+(no?` · ${no}`:''),qty:q,after:s.stock};
-  history.unshift(h);
+  addHistory({type:'출고',name,color:cl,size:sz,extra:st+(no?` · ${no}`:''),qty:q,after:s.stock});
   renderOrderLog();
   document.getElementById('o-qty').value=1; document.getElementById('o-no').value='';
   autoSave(); renderAll();
@@ -927,14 +977,14 @@ function doInbound() {
   const cl=document.getElementById('i-c').value, sz=document.getElementById('i-s').value;
   const q=parseInt(document.getElementById('i-qty').value)||0, tp=document.getElementById('i-type').value;
   const p=gp(name); const s=gs(p,cl,sz);
-  if(!p||!s||q<=0) return;
+  if(!p||!s||q<=0){ addHistory({type:'실패',name:name||'—',color:cl,size:sz,extra:'입고 입력값 오류',qty:q,after:s?s.stock:0}); toast('입력값 확인','err'); return; }
   s.stock+=q;
-  const h = {date:dateStr(),time:nowStr(),type:'입고',name,color:cl,size:sz,extra:tp,qty:q,after:s.stock};
-  history.unshift(h);
+  addHistory({type:'입고',name,color:cl,size:sz,extra:tp,qty:q,after:s.stock});
   document.getElementById('i-log').innerHTML = history.filter(h=>h.type==='입고').map(h=>`
     <div class="log-item">
       <div class="log-time">${h.date}<br>${h.time}</div>
       <div class="log-dot" style="background:var(--green)"></div>
+      <span style="color:var(--text3);font-size:10px">${h.user||'—'}</span>
       <span style="flex:1;font-weight:500">${h.name}</span>
       <span style="color:var(--text2);font-size:11px">${h.color}/${h.size}mm</span>
       <span class="mono" style="color:var(--green);font-weight:600">+${h.qty}</span>
@@ -977,28 +1027,42 @@ function renderHist() {
   const q=document.getElementById('h-q').value.toLowerCase();
   const ft=document.getElementById('h-f').value;
   const f=history.filter(h=>
-    (h.name.toLowerCase().includes(q)||h.color.includes(q)||h.size.includes(q)||h.extra.toLowerCase().includes(q))
+    ((h.name||'').toLowerCase().includes(q)||(h.color||'').includes(q)||(h.size||'').includes(q)||(h.extra||'').toLowerCase().includes(q)||(h.user||'').toLowerCase().includes(q))
     &&(ft===''||h.type.includes(ft))
   );
-  const tc = t => t.includes('출고')?'br': t.includes('입고')?'bg':'bb';
-  if(!f.length){ document.getElementById('h-tbody').innerHTML='<tr><td colspan="9" style="text-align:center;color:var(--text3);padding:22px">내역이 없습니다</td></tr>'; return; }
+  const tc = t => {
+    if(t.includes('출고')) return 'br';
+    if(t.includes('입고')) return 'bg';
+    if(t.includes('조정')) return 'bb';
+    if(t==='등록') return 'bpu';
+    if(t==='수정') return 'ba';
+    if(t==='삭제') return 'br';
+    if(t==='실패') return 'br';
+    return 'bb';
+  };
+  const qtyColor = t => (t.includes('출고')||t==='조정(-)'||t==='삭제'||t==='실패') ? 'var(--red)' : t==='수정'||t==='등록' ? 'var(--purple)' : 'var(--green)';
+  const qtyPrefix = t => (t.includes('출고')||t==='조정(-)') ? '-' : (t==='등록'||t==='수정'||t==='삭제'||t==='실패') ? '' : '+';
+  const qtyDisp = h => (h.type==='등록'||h.type==='수정'||h.type==='삭제'||h.type==='실패') ? '—' : `${qtyPrefix(h.type)}${h.qty}`;
+  const afterDisp = h => (h.type==='등록'||h.type==='수정'||h.type==='삭제'||h.type==='실패') ? '—' : h.after;
+  if(!f.length){ document.getElementById('h-tbody').innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:22px">내역이 없습니다</td></tr>'; return; }
   document.getElementById('h-tbody').innerHTML = f.map(h=>`<tr>
     <td class="mono" style="color:var(--text3);font-size:11px">${h.date||'—'}</td>
-    <td class="mono" style="color:var(--text3);font-size:11px">${h.time}</td>
+    <td class="mono" style="color:var(--text3);font-size:11px">${h.time||'—'}</td>
     <td><span class="badge ${tc(h.type)}">${h.type}</span></td>
-    <td style="font-weight:500">${h.name}</td>
-    <td>${h.color}</td>
-    <td class="mono">${h.size}mm</td>
-    <td style="color:var(--text2);font-size:12px">${h.extra}</td>
-    <td class="mono" style="font-weight:600;color:${h.type.includes('출고')||h.type==='조정(-)'?'var(--red)':'var(--green)'}">${h.type.includes('출고')||h.type==='조정(-)'?'-':'+'}${h.qty}</td>
-    <td class="mono">${h.after}</td>
+    <td style="font-size:11px;color:var(--text2)">${h.user||'—'}</td>
+    <td style="font-weight:500">${h.name||'—'}</td>
+    <td>${h.color||'—'}</td>
+    <td class="mono">${h.size&&h.size!=='—'?h.size+'mm':'—'}</td>
+    <td style="color:var(--text2);font-size:12px">${h.extra||'—'}</td>
+    <td class="mono" style="font-weight:600;color:${qtyColor(h.type)}">${qtyDisp(h)}</td>
+    <td class="mono">${afterDisp(h)}</td>
   </tr>`).join('');
 }
 
 function exportHistory() {
   if(!history.length){ toast('이력이 없습니다','err'); return; }
-  const ws=XLSX.utils.aoa_to_sheet([['날짜','시간','구분','상품명','색상','사이즈(mm)','스토어/사유','수량','처리 후 재고'],
-    ...history.map(h=>[h.date||'',h.time,h.type,h.name,h.color,h.size,h.extra,h.qty,h.after])]);
+  const ws=XLSX.utils.aoa_to_sheet([['날짜','시간','구분','작업자','상품명','색상','사이즈(mm)','스토어/사유','수량','처리 후 재고'],
+    ...history.map(h=>[h.date||'',h.time||'',h.type,h.user||'—',h.name||'',h.color||'',h.size||'',h.extra||'',h.qty,h.after])]);
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'이력');
   XLSX.writeFile(wb,`재고이력_${dateStr()}.xlsx`);
   toast('이력 저장됨','ok');
@@ -1146,10 +1210,14 @@ function saveProduct() {
   if(!colors.length){ toast('색상과 사이즈를 최소 1개 입력','err'); return; }
   if(editTarget) {
     const p = gp(editTarget);
+    const oldColors = JSON.stringify(p.colors);
     p.name = name; p.cat = cat; p.colors = colors;
+    addHistory({type:'수정',name,color:'—',size:'—',extra:`카테고리:${cat} / 색상·사이즈 수정`,qty:0,after:0});
     toast(`✅ ${name} 수정완료`,'ok');
   } else {
     products.push({name, cat, hidden:false, colors});
+    const totalSizes = colors.reduce((a,c)=>a+c.sizes.length,0);
+    addHistory({type:'등록',name,color:'—',size:'—',extra:`카테고리:${cat} / 색상${colors.length}개 / 사이즈${totalSizes}종`,qty:0,after:0});
     toast(`✅ ${name} 추가완료`,'ok');
   }
   closeModal('modal-add'); autoSave(); renderAll();
@@ -1169,7 +1237,10 @@ function openDel(name) { delTarget=name; document.getElementById('del-nm').textC
 function confirmDel() {
   if(!delTarget) return;
   const nm = delTarget;
+  const p = gp(nm);
+  const totalStock = p ? tot(p) : 0;
   products = products.filter(p => p.name !== nm);
+  addHistory({type:'삭제',name:nm,color:'—',size:'—',extra:`상품 삭제 (잔여재고 ${totalStock}켤레)`,qty:0,after:0});
   closeModal('modal-del'); autoSave(); renderAll();
   toast(`🗑 ${nm} 삭제완료`,'ok'); delTarget=null;
 }
@@ -1202,8 +1273,12 @@ function checkResetConfirm() {
 function confirmReset() {
   const val = document.getElementById('reset-confirm-input').value.trim();
   if (val !== '전체삭제') return;
+  const totalP = products.length;
+  const resetLog = {type:'삭제',name:'[전체]',color:'—',size:'—',
+    extra:`전체 재고 삭제 (상품 ${totalP}개)`,qty:0,after:0,
+    date:dateStr(),time:nowStr(),user:currentUser?currentUser.email:'unknown'};
   products = [];
-  history = [];
+  history = [resetLog];
   todayOut = 0;
   closeModal('modal-reset');
   document.getElementById('reset-confirm-input').value = '';
@@ -1268,7 +1343,7 @@ function applyUpload() {
     if(row.mode==='추가') s.stock+=row.qty;
     else if(row.mode==='차감') s.stock-=row.qty;
     else if(row.mode==='설정') s.stock=row.qty;
-    history.unshift({date:dateStr(),time:nowStr(),type:row.mode==='추가'?'입고(엑셀)':row.mode==='차감'?'출고(엑셀)':'조정(엑셀)',name:row.pname,color:row.color,size:row.size,extra:'엑셀 업로드',qty:row.qty,after:s.stock});
+    addHistory({type:row.mode==='추가'?'입고(엑셀)':row.mode==='차감'?'출고(엑셀)':'조정(엑셀)',name:row.pname,color:row.color,size:row.size,extra:'엑셀 업로드',qty:row.qty,after:s.stock});
     cnt++;
   });
   clearUpload(); autoSave(); renderAll();
@@ -1289,6 +1364,102 @@ function downloadTemplate() {
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'재고업로드');
   XLSX.writeFile(wb,'재고업로드_양식.xlsx');
   toast('양식 다운로드됨','ok');
+}
+
+// ═══════════════════════════════════════════════════════
+// 신상품 일괄 등록 (엑셀)
+// ═══════════════════════════════════════════════════════
+function switchExcelTab(tab) {
+  document.getElementById('excel-stock-panel').style.display = tab==='stock' ? '' : 'none';
+  document.getElementById('excel-product-panel').style.display = tab==='product' ? '' : 'none';
+  document.getElementById('etab-stock').classList.toggle('on', tab==='stock');
+  document.getElementById('etab-product').classList.toggle('on', tab==='product');
+}
+
+function downloadProductTemplate() {
+  const data=[
+    ['상품명','카테고리','색상','사이즈(mm)','초기재고'],
+    ['신상품A','런닝화','블랙','250',10],
+    ['신상품A','런닝화','블랙','255',15],
+    ['신상품A','런닝화','블랙','260',20],
+    ['신상품A','런닝화','화이트','250',10],
+    ['신상품A','런닝화','화이트','255',12],
+    ['신상품B','캐주얼','네이비','260',5],
+  ];
+  const ws=XLSX.utils.aoa_to_sheet(data);
+  ws['!cols']=[{wch:18},{wch:14},{wch:12},{wch:12},{wch:10}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'신상품등록');
+  XLSX.writeFile(wb,'신상품등록_양식.xlsx');
+  toast('신상품 양식 다운로드됨','ok');
+}
+
+let pendingProductUpload = [];
+
+function onDragOver2(e){e.preventDefault();document.getElementById('drop-zone-product').classList.add('drag');}
+function onDragLeave2(){document.getElementById('drop-zone-product').classList.remove('drag');}
+function onDrop2(e){e.preventDefault();document.getElementById('drop-zone-product').classList.remove('drag');const f=e.dataTransfer.files[0];if(f)processProductFile(f);}
+function onFileSelectProduct(e){const f=e.target.files[0];if(f)processProductFile(f);e.target.value='';}
+
+function processProductFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result,{type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      const dataRows = rows.slice(1).filter(r=>r[0]||r[2]);
+      // 상품명별로 그룹화
+      const productMap = {};
+      let errCnt = 0;
+      dataRows.forEach(r => {
+        const pname=String(r[0]||'').trim();
+        const cat=String(r[1]||'기타').trim();
+        const color=String(r[2]||'').trim();
+        const size=String(r[3]||'').trim();
+        const stock=parseInt(r[4])||0;
+        if(!pname||!color||!size){errCnt++;return;}
+        if(!productMap[pname]) productMap[pname]={name:pname,cat,colors:{}};
+        if(!productMap[pname].colors[color]) productMap[pname].colors[color]=[];
+        productMap[pname].colors[color].push({size,stock});
+      });
+      pendingProductUpload = Object.values(productMap).map(p=>({
+        name:p.name, cat:p.cat,
+        colors:Object.entries(p.colors).map(([color,sizes])=>({color,sizes})),
+        exists:!!gp(p.name)
+      }));
+      const tbody = document.getElementById('preview-tbody-product');
+      tbody.innerHTML = pendingProductUpload.map(p=>{
+        const totalSz = p.colors.reduce((a,c)=>a+c.sizes.length,0);
+        const st = p.exists ? '<span class="badge ba">⚠ 이미 존재</span>' : '<span class="badge bg">✅ 신규 등록 가능</span>';
+        return `<tr><td style="font-weight:600">${p.name}</td><td>${p.cat}</td><td>${p.colors.length}</td><td>${totalSz}</td><td>${st}</td></tr>`;
+      }).join('');
+      const newCnt = pendingProductUpload.filter(p=>!p.exists).length;
+      const dupCnt = pendingProductUpload.filter(p=>p.exists).length;
+      document.getElementById('result-title-product').textContent=`미리보기: ${pendingProductUpload.length}개 상품`;
+      document.getElementById('result-summary-product').textContent=`신규 ${newCnt}개 / 이미 존재 ${dupCnt}개 (중복은 건너뜀) / 행 오류 ${errCnt}개`;
+      document.getElementById('upload-result-product').classList.add('show');
+    } catch(err) { toast('파일 읽기 실패: '+err.message,'err'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function applyUploadProduct() {
+  let cnt=0;
+  pendingProductUpload.forEach(p => {
+    if(p.exists) return;
+    products.push({name:p.name, cat:p.cat, hidden:false, colors:p.colors});
+    const totalSz = p.colors.reduce((a,c)=>a+c.sizes.length,0);
+    addHistory({type:'등록',name:p.name,color:'—',size:'—',extra:`엑셀 일괄등록 / 카테고리:${p.cat} / 색상${p.colors.length}개 / 사이즈${totalSz}종`,qty:0,after:0});
+    cnt++;
+  });
+  clearUploadProduct(); autoSave(); renderAll();
+  toast(`✅ ${cnt}개 신상품 등록 완료`,'ok');
+}
+
+function clearUploadProduct() {
+  pendingProductUpload=[];
+  document.getElementById('upload-result-product').classList.remove('show');
+  document.getElementById('preview-tbody-product').innerHTML='';
 }
 
 // ═══════════════════════════════════════════════════════
